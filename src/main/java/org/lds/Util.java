@@ -31,4 +31,8 @@ public class Util {
         if (iterable == null) return true;
         return !iterable.iterator().hasNext();
     }
+
+    public static void throwExceptionIfNull(Object obj, String msg) {
+        if (obj == null) throw new NullPointerException(msg);
+    }
 }
