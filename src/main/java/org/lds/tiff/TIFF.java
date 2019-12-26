@@ -9,21 +9,25 @@ import java.util.Map;
 
 public class TIFF {
 
+    private static final int II = 0x4949;
+    private static final int MM = 0x4d4d;
+    private static final int NUMBER_42 = 0x2a;
+
     public static TIFF parse(AbstractSeekableBinaryReader reader, long offset) throws IOException {
         reader.seek(offset);
         ByteOrder order;
         switch (reader.readUnsignedShortValue()) {
-            case 0x4949:
+            case II:
                 order = ByteOrder.LITTLE_ENDIAN;
                 break;
-            case 0x4d4d:
+            case MM:
                 order = ByteOrder.BIG_ENDIAN;
                 break;
             default:
                 return null;
         }
         reader.setOrder(order);
-        if (reader.readUnsignedShortValue() != 0x2a) {
+        if (reader.readUnsignedShortValue() != NUMBER_42) {
             return null;
         }
         long offsetOfIFD = reader.readUnsignedIntValue();

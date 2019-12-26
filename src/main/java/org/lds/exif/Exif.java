@@ -15,8 +15,15 @@ import java.text.DecimalFormat;
 import java.util.Arrays;
 
 public class Exif {
+    private static final int SOI = 0xffd8;
+    private static final int APP1 = 0xffe1;
+    private static final int SOS = 0xffda;
     private static final String MAKE_CANON = "Canon";
     private static final String MAKE_NIKON = "NIKON CORPORATION";
+    private static final byte[] EXIF_MARKER = new byte[]{0x45, 0x78, 0x69, 0x66, 0x00, 0x00};
+    private static final byte[] NIKON_TYPE_1_MARKER = new byte[]{0x4e, 0x69, 0x6b, 0x6f, 0x6e, 0x00, 0x01, 0x00};
+    private static final byte[] NIKON_TYPE_2_A_MARKER = new byte[]{0x4e, 0x69, 0x6b, 0x6f, 0x6e, 0x00, 0x02, 0x10, 0x00, 0x00};
+    private static final byte[] NIKON_TYPE_2_B_MARKER = new byte[]{0x4e, 0x69, 0x6b, 0x6f, 0x6e, 0x00, 0x02, 0x00, 0x00, 0x00};
 
     public static Exif parse(File file) throws IOException {
         return parse(new FileBinaryReader(file));
@@ -34,17 +41,17 @@ public class Exif {
 
     private static long findTIFFInJPEG(AbstractSeekableBinaryReader reader) throws IOException {
         reader.seek(0);
-        if ((reader.readUnsignedShortValue()) == 0xffd8) {
+        if ((reader.readUnsignedShortValue()) == SOI) {
             while (true) {
                 int id = reader.readUnsignedShortValue();
                 int size = reader.readUnsignedShortValue();
-                if (id == 0xffe1) {
+                if (id == APP1) {
                     byte[] exifMarker = reader.readByteArray(6);
-                    if (Arrays.equals(exifMarker, new byte[]{0x45, 0x78, 0x69, 0x66, 0x00, 0x00})) {
+                    if (Arrays.equals(exifMarker, EXIF_MARKER)) {
                         return reader.getPosition();
                     }
                     break;
-                } else if (id == 0xffda) {
+                } else if (id == SOS) {
                     break;
                 } else {
                     reader.skip(size - 2);
@@ -242,10 +249,10 @@ public class Exif {
             } else if (MAKE_NIKON.equals(make)) {
                 tiff.getReader().seek(makerNoteOffset);
                 byte[] buf = tiff.getReader().readByteArray(10);
-                if (ByteArrayUtil.startsWith(buf, new byte[]{0x4e, 0x69, 0x6b, 0x6f, 0x6e, 0x00, 0x01, 0x00})) {
+                if (ByteArrayUtil.startsWith(buf, NIKON_TYPE_1_MARKER)) {
                     return tiff.readIFD(makerNoteOffset + 8);
-                } else if (ByteArrayUtil.startsWith(buf, new byte[]{0x4e, 0x69, 0x6b, 0x6f, 0x6e, 0x00, 0x02, 0x10, 0x00, 0x00}) ||
-                        ByteArrayUtil.startsWith(buf, new byte[]{0x4e, 0x69, 0x6b, 0x6f, 0x6e, 0x00, 0x02, 0x00, 0x00, 0x00})) {
+                } else if (ByteArrayUtil.startsWith(buf, NIKON_TYPE_2_A_MARKER) ||
+                        ByteArrayUtil.startsWith(buf, NIKON_TYPE_2_B_MARKER)) {
                     TIFF makerNoteTIFF = TIFF.parse(tiff.getReader(), tiff.getOffset() + makerNoteOffset + 10);
                     if (makerNoteTIFF != null) {
                         return makerNoteTIFF.readIFD(makerNoteTIFF.getOffsetOfIFD());
