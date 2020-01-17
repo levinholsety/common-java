@@ -64,7 +64,7 @@ public class QueryString {
             sb.append(parameters.get(0));
             for (int i = 1; i < parameters.size(); i++) {
                 sb.append('&');
-                sb.append(parameters.get(0));
+                sb.append(parameters.get(i));
             }
         }
         return sb.toString();

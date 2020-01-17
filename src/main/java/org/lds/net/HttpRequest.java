@@ -3,14 +3,17 @@ package org.lds.net;
 import org.lds.Encoding;
 import org.lds.io.IOUtil;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import javax.net.ssl.*;
+import java.io.*;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 
 public class HttpRequest {
 
@@ -19,6 +22,41 @@ public class HttpRequest {
 
     static {
         CookieHandler.setDefault(new CookieManager());
+    }
+
+    private static void acceptAllCertificates(HttpsURLConnection conn) {
+        TrustManager[] trustManagers = new TrustManager[]{new X509TrustManager() {
+            @Override
+            public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+            }
+
+            @Override
+            public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+            }
+
+            @Override
+            public X509Certificate[] getAcceptedIssuers() {
+                return new X509Certificate[0];
+            }
+        }};
+        SSLContext ssl = null;
+        try {
+            ssl = SSLContext.getInstance("SSL");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            ssl.init(null, trustManagers, new SecureRandom());
+        } catch (KeyManagementException e) {
+            throw new RuntimeException(e);
+        }
+        conn.setSSLSocketFactory(ssl.getSocketFactory());
+        conn.setHostnameVerifier(new HostnameVerifier() {
+            @Override
+            public boolean verify(String s, SSLSession sslSession) {
+                return true;
+            }
+        });
     }
 
     private final String path;
@@ -87,12 +125,18 @@ public class HttpRequest {
         String address = sb.toString();
         URL url = new URL(address);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        if (conn instanceof HttpsURLConnection) {
+            acceptAllCertificates((HttpsURLConnection) conn);
+        }
         conn.setConnectTimeout(timeout);
         conn.setReadTimeout(timeout);
+        conn.setUseCaches(false);
         conn.setRequestMethod(method);
         if (dataStream != null) {
             conn.setDoOutput(true);
-            conn.addRequestProperty("Content-Type", contentType);
+            if (contentType != null) {
+                conn.addRequestProperty("Content-Type", contentType);
+            }
         }
         conn.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0");
         if (referer != null) {
@@ -101,7 +145,9 @@ public class HttpRequest {
         try {
             conn.connect();
             if (dataStream != null) {
-                IOUtil.transfer(dataStream, conn.getOutputStream());
+                OutputStream out = conn.getOutputStream();
+                IOUtil.transfer(dataStream, out);
+                out.flush();
             }
             int responseCode = conn.getResponseCode();
             if (responseCode != HttpURLConnection.HTTP_OK) {
