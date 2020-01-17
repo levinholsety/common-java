@@ -26,27 +26,18 @@ public class Fraction extends Number {
             this.numerator = 0;
             this.denominator = 1;
         } else {
-            if (numerator == denominator) {
-                this.numerator = 1;
-                this.denominator = 1;
-            } else if (-numerator == denominator) {
-                this.numerator = -1;
-                this.denominator = 1;
-            } else {
-                if (denominator < 0) {
-                    numerator = -numerator;
-                    denominator = -denominator;
-                }
-                long min = Math.min(Math.abs(numerator), denominator);
-                long max = Math.max(Math.abs(numerator), denominator);
-                long remainder;
-                while ((remainder = max % min) > 0) {
-                    max = min;
-                    min = remainder;
-                }
-                this.numerator = numerator / min;
-                this.denominator = denominator / min;
+            long min = Math.min(Math.abs(numerator), Math.abs(denominator));
+            long max = Math.max(Math.abs(numerator), Math.abs(denominator));
+            long remainder;
+            while ((remainder = max % min) > 0) {
+                max = min;
+                min = remainder;
             }
+            if (denominator < 0) {
+                min = -min;
+            }
+            this.numerator = numerator / min;
+            this.denominator = denominator / min;
         }
     }
 
@@ -67,7 +58,7 @@ public class Fraction extends Number {
         if (numerator == 0) {
             return "0";
         }
-        if (Math.abs(numerator) == Math.abs(denominator)) {
+        if (denominator == 1) {
             return Long.toString(numerator / denominator);
         }
         return String.format("%d/%d", numerator, denominator);
